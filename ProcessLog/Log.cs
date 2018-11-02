@@ -22,11 +22,11 @@ namespace ProcessLog
         /// <param name="fileName">полное имя будущего файла</param>
         public static void Init(string fileName)
         {
-            LogFileName = fileName;
-
             File.WriteAllText(fileName,string.Format("[LOG FILE CREATED {0}]", getCurrentDate()));
 
             _logFileCreated = true;
+
+            LogFileName = fileName;
         }
 
         /// <summary>
