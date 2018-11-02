@@ -10,21 +10,30 @@ namespace ProcessLog
 {
     public static class Log
     {
-        
+        /// <summary>
+        /// Полное имя лог-фала
+        /// </summary>
         public static string LogFileName;
         
 
-
+        /// <summary>
+        /// Инициализация лог файла
+        /// </summary>
+        /// <param name="fileName">полное имя будущего файла</param>
         public static void Init(string fileName)
         {
             LogFileName = fileName;
 
-            File.WriteAllText(fileName,);
+            File.WriteAllText(fileName,string.Format("[LOG FILE CREATED {0}]", getCurrentDate()));
         }
 
+        /// <summary>
+        /// Добавление данной строки в файл
+        /// <p>При записи в файл строка форматируется по форме [текущ. время]: Данная строка </p>
+        /// </summary>
         public static void Add(string line)
         {
-            
+            File.AppendAllText(LogFileName, string.Format("[{0}]: ", getCurrentTime()));
         }
 
         private static string getCurrentTime()
