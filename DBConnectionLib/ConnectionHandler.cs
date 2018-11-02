@@ -226,6 +226,26 @@ namespace DBConnectionLib
         }
 
         /// <summary>
+        /// Вставить множество строк в заданную таблицу
+        /// </summary>
+        public void InsertBulkQuery(DataTable dataTable, string tableName)
+        {
+            DBConnect();
+
+            var bulkCopy = new SqlBulkCopy(sConnect, SqlBulkCopyOptions.TableLock, null)
+            {
+                DestinationTableName = tableName,
+                BatchSize = dataTable.Rows.Count
+            };
+
+            bulkCopy.WriteToServer(dataTable);
+
+            DBDisconnect();
+
+            bulkCopy.Close();
+        }
+
+        /// <summary>
         /// Отправляет запрос к БД и возвращает первую строку первого столбца результата запроса
         /// </summary>
         /// <param name="Query">Запрос</param>
