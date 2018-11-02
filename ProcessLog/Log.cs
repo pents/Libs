@@ -13,8 +13,8 @@ namespace ProcessLog
         /// <summary>
         /// Полное имя лог-фала
         /// </summary>
-        public static string LogFileName;
-        
+        public static string LogFileName { get; private set; }
+        private static bool _logFileCreated = false;
 
         /// <summary>
         /// Инициализация лог файла
@@ -25,6 +25,8 @@ namespace ProcessLog
             LogFileName = fileName;
 
             File.WriteAllText(fileName,string.Format("[LOG FILE CREATED {0}]", getCurrentDate()));
+
+            _logFileCreated = true;
         }
 
         /// <summary>
@@ -33,6 +35,7 @@ namespace ProcessLog
         /// </summary>
         public static void Add(string line)
         {
+            if (!_logFileCreated) throw new FileNotFoundException("Log file is not initialized");
             File.AppendAllText(LogFileName, string.Format("[{0}]: ", getCurrentTime()));
         }
 
@@ -46,4 +49,7 @@ namespace ProcessLog
             return string.Format("{0}/{1}/{2}", DateTime.Now.Day, DateTime.Now.Month, DateTime.Now.Year);
         }
     }
+
+   
+
 }
