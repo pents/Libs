@@ -80,7 +80,11 @@ namespace DBConnectionLib
         /// Объект для закрытия доступа нескольким потокам 
         /// </summary>
         private readonly object _lockObj = new object();
-        public static bool Connected { get; set; }
+
+        /// <summary>
+        /// Определяет, установленно ли подключение к БД
+        /// </summary>
+        public static bool Connected { get; private set; }
 
         /// <summary>
         /// Вызов единого экземпляра класса ConnectionHandler
@@ -90,7 +94,7 @@ namespace DBConnectionLib
             if (Instance == null)
             {
                 Instance = new ConnectionHandler();
-                Connected = false;
+                Connected = true;
             }
             return Instance;
         }
@@ -331,7 +335,7 @@ namespace DBConnectionLib
         public void Dispose()
         {
             sConnect.Close();
-            Connected = true;
+            Connected = false;
         }
     }
 }
