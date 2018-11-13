@@ -80,6 +80,7 @@ namespace DBConnectionLib
         /// Объект для закрытия доступа нескольким потокам 
         /// </summary>
         private readonly object _lockObj = new object();
+        public static bool Connected { get; set; }
 
         /// <summary>
         /// Вызов единого экземпляра класса ConnectionHandler
@@ -88,7 +89,8 @@ namespace DBConnectionLib
         {
             if (Instance == null)
             {
-                Instance = new ConnectionHandler();           
+                Instance = new ConnectionHandler();
+                Connected = false;
             }
             return Instance;
         }
@@ -102,18 +104,21 @@ namespace DBConnectionLib
 
             sConnect = new SqlConnection(conStr.ConnectionString);
 
+            OpenConnection();
+
             Console.WriteLine("Соединение с БД успешно установлено");
         }
 
         /// <summary>
         /// Подключение к БД
         /// </summary>
-        public void OpenConnection()
+        private void OpenConnection()
         {
             try
             {
                 if (sConnect.State == ConnectionState.Open) return;
-                sConnect.Open();
+                sConnect.OpenAsync();
+                //sConnect.Open();
             }
             catch (Exception e)
             {
@@ -326,6 +331,7 @@ namespace DBConnectionLib
         public void Dispose()
         {
             sConnect.Close();
+            Connected = true;
         }
     }
 }
