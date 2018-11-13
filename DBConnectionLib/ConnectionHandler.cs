@@ -113,6 +113,7 @@ namespace DBConnectionLib
         {
             try
             {
+                if (sConnect.State == ConnectionState.Open) return;
                 sConnect.Open();
             }
             catch (Exception e)
