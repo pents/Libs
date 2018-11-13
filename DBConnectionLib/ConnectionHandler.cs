@@ -57,7 +57,7 @@ namespace DBConnectionLib
     /// <summary>
     /// Класс, поддерживающий соединение с заданной БД
     /// </summary>
-    public class ConnectionHandler
+    public class ConnectionHandler : IDisposable
     {
         /// <summary>
         /// Объект подключения к БД
@@ -101,15 +101,14 @@ namespace DBConnectionLib
             if (conStr == null) throw new DataBaseConnectionErrorException("Не обнаружен объект SqlConnectionStringBuilder");
 
             sConnect = new SqlConnection(conStr.ConnectionString);
-            DBConnect();
+
             Console.WriteLine("Соединение с БД успешно установлено");
-            DBDisconnect();
         }
 
         /// <summary>
         /// Подключение к БД
         /// </summary>
-        private void DBConnect()
+        public void OpenConnection()
         {
             try
             {
@@ -124,21 +123,13 @@ namespace DBConnectionLib
         }
 
         /// <summary>
-        /// Сброс подключения к БД
-        /// </summary>
-        private void DBDisconnect()
-        {
-            sConnect.Close();
-        }
-
-        /// <summary>
         /// Отправка запроса к БД, не возвращает результат
         /// </summary>
         public void ExecuteQuery(string Query)
         {
             try
             {
-                DBConnect();
+
                 sTrans = sConnect.BeginTransaction();
                 SqlCommand command = new SqlCommand(Query, sConnect, sTrans);
 
@@ -151,7 +142,7 @@ namespace DBConnectionLib
                 sTrans.Rollback();
                 throw new QueryErrorException(string.Format("Ошибка в запросе {0} \n {1}", Query, e.Message));
             }
-            DBDisconnect();
+
         }
 
         /// <summary>
@@ -162,7 +153,7 @@ namespace DBConnectionLib
             string currentQuery = "";
             try
             {
-                DBConnect();
+
                 sTrans = sConnect.BeginTransaction();
                 SqlCommand command = new SqlCommand();
                 command.Connection = sConnect;
@@ -184,7 +175,7 @@ namespace DBConnectionLib
                 sTrans.Rollback();
                 throw new QueryErrorException(string.Format("Ошибка в запросе {0} \n {1}", currentQuery, e.Message));
             }
-            DBDisconnect();
+
         }
         /// <summary>
         /// Отправка группы запрсов к БД
@@ -196,7 +187,7 @@ namespace DBConnectionLib
             string currentQuery = "";
             try
             {
-                DBConnect();
+
                 sTrans = sConnect.BeginTransaction();
                 SqlCommand command = new SqlCommand();
                 command.Connection = sConnect;
@@ -230,7 +221,7 @@ namespace DBConnectionLib
                 sTrans.Rollback();
                 throw new QueryErrorException(string.Format("Ошибка в запросе {0} \n {1}", currentQuery, e.Message));
             }
-            DBDisconnect();
+
         }
 
         /// <summary>
@@ -240,7 +231,7 @@ namespace DBConnectionLib
         {
             lock(_lockObj)
             {
-                DBConnect();
+
 
                 var bulkCopy = new SqlBulkCopy(sConnect, SqlBulkCopyOptions.TableLock, null)
                 {
@@ -250,7 +241,6 @@ namespace DBConnectionLib
 
                 bulkCopy.WriteToServer(dataTable);
 
-                DBDisconnect();
 
                 bulkCopy.Close();
             }
@@ -263,11 +253,11 @@ namespace DBConnectionLib
         /// <param name="Query">Запрос</param>
         public string ExecuteOneElemQuery(string Query)
         {
-            DBConnect();
+
             SqlCommand res = new SqlCommand(Query, sConnect);
 
             object result = res.ExecuteScalar();
-            DBDisconnect();
+
             return result == null ? "0" : result.ToString();
         }
 
@@ -279,7 +269,7 @@ namespace DBConnectionLib
             DataSet ds = new DataSet("TableDataSet");
             DataTable dt = new DataTable("New_WorkSheet");
 
-            DBConnect();
+
 
             SqlCommand command = new SqlCommand(Query);
             command.Connection = sConnect;
@@ -287,7 +277,6 @@ namespace DBConnectionLib
             adapter.SelectCommand = command;
             adapter.Fill(dt);
 
-            DBDisconnect();
 
             ds.Tables.Add(dt);
 
@@ -304,7 +293,6 @@ namespace DBConnectionLib
             {
                 var command = new SqlCommand(Query, sConnect);
 
-                DBConnect();
                 using (var reader = command.ExecuteReader())
                 {
                     while (reader.Read())
@@ -327,9 +315,17 @@ namespace DBConnectionLib
             {
                 throw new QueryErrorException(string.Format("Не удалось обработать запрос {0}\n {1}", Query, e.Message));
             }
-            DBDisconnect();
+
             return result;
 
+        }
+
+        /// <summary>
+        /// Закрытие соединения при ненадобности
+        /// </summary>
+        public void Dispose()
+        {
+            sConnect.Close();
         }
     }
 }
