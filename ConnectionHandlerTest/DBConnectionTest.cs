@@ -12,7 +12,7 @@ namespace ConnectionHandlerTest
     [TestClass]
     public class DBConnectionTest
     {
-        private static SqlConnectionStringBuilder conStr;
+        private static SqlConnectionStringBuilder conStrr;
 
         /// <summary>
         /// Модульный тест на проверку нужной ошибки в случае неправильного задания строки подключения
@@ -30,16 +30,32 @@ namespace ConnectionHandlerTest
         [TestMethod]
         public void DBConnectionOKTest()
         {
-            conStr = new SqlConnectionStringBuilder();
-            conStr.IntegratedSecurity = true; // true for testing purposes
-            conStr.DataSource = "10.255.7.203";
-            conStr.InitialCatalog = "URV";
-            ConnectionHandler.conStr = conStr;
+            conStrr = new SqlConnectionStringBuilder();
+            conStrr.IntegratedSecurity = true; // true for testing purposes
+            conStrr.DataSource = "10.255.7.203";
+            conStrr.InitialCatalog = "URV";
+            ConnectionHandler.conStr = conStrr;
             ConnectionHandler testCon = ConnectionHandler.GetInstance();
             Assert.IsNotNull(testCon);
         }
 
+        [TestMethod]
+        public void DBQueryTest()
+        {
+            conStrr = new SqlConnectionStringBuilder();
+            conStrr.DataSource = "10.255.7.203";
+            conStrr.InitialCatalog = "SGT_MMC";
+            //conStr.IntegratedSecurity = true; // true for testing purposes
+            conStrr.UserID = "UsersSGT";
+            conStrr.Password = "123QWEasd";
+            conStrr.PersistSecurityInfo = true;
 
+            ConnectionHandler.conStr = conStrr;
+
+            ConnectionHandler testCon = ConnectionHandler.GetInstance();
+
+            Assert.AreEqual(7, testCon.ExecuteOneElemQuery("SELECT ID FROM SGT_MMC.dbo.TBDetailID WHERE Detail = 'БА8226305-02'"));
+        }
         
     }
 }

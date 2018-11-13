@@ -52,6 +52,8 @@ namespace DBConnectionLib
     }
 
 
+
+
     /// <summary>
     /// Класс, поддерживающий соединение с заданной БД
     /// </summary>
@@ -75,13 +77,18 @@ namespace DBConnectionLib
         private static ConnectionHandler Instance;
 
         /// <summary>
+        /// Объект для закрытия доступа нескольким потокам 
+        /// </summary>
+        private readonly object _lockObj = new object();
+
+        /// <summary>
         /// Вызов единого экземпляра класса ConnectionHandler
         /// </summary>
         public static ConnectionHandler GetInstance()
         {
             if (Instance == null)
             {
-                Instance = new ConnectionHandler();
+                Instance = new ConnectionHandler();           
             }
             return Instance;
         }
@@ -230,19 +237,23 @@ namespace DBConnectionLib
         /// </summary>
         public void InsertBulkQuery(DataTable dataTable, string tableName)
         {
-            DBConnect();
-
-            var bulkCopy = new SqlBulkCopy(sConnect, SqlBulkCopyOptions.TableLock, null)
+            lock(_lockObj)
             {
-                DestinationTableName = tableName,
-                BatchSize = dataTable.Rows.Count
-            };
+                DBConnect();
 
-            bulkCopy.WriteToServer(dataTable);
+                var bulkCopy = new SqlBulkCopy(sConnect, SqlBulkCopyOptions.TableLock, null)
+                {
+                    DestinationTableName = tableName,
+                    BatchSize = dataTable.Rows.Count
+                };
 
-            DBDisconnect();
+                bulkCopy.WriteToServer(dataTable);
 
-            bulkCopy.Close();
+                DBDisconnect();
+
+                bulkCopy.Close();
+            }
+
         }
 
         /// <summary>
@@ -256,7 +267,7 @@ namespace DBConnectionLib
 
             object result = res.ExecuteScalar();
             DBDisconnect();
-            return result == null ? "0" : res.ToString();
+            return result == null ? "0" : result.ToString();
         }
 
         /// <summary>

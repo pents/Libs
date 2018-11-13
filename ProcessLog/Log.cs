@@ -36,7 +36,7 @@ namespace ProcessLog
         public static void Add(string line)
         {
             if (!_logFileCreated) throw new FileNotFoundException("Log file is not initialized");
-            File.AppendAllText(LogFileName, string.Format("[{0}]: ", getCurrentTime()));
+            File.AppendAllText(LogFileName, string.Format("\n[{0}]: {1}", getCurrentTime(), line));
         }
 
         private static string getCurrentTime()
