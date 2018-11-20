@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
+using System.Threading;
 
 namespace DBConnectionLib
 {
@@ -57,7 +58,7 @@ namespace DBConnectionLib
     /// <summary>
     /// Класс, поддерживающий соединение с заданной БД
     /// </summary>
-    public class ConnectionHandler : IDisposable
+    public class ConnectionHandler
     {
         /// <summary>
         /// Объект подключения к БД
@@ -84,7 +85,7 @@ namespace DBConnectionLib
         /// <summary>
         /// Определяет, установленно ли подключение к БД
         /// </summary>
-        public static bool Connected { get; private set; }
+        public bool Connected { get; private set; }
 
         /// <summary>
         /// Вызов единого экземпляра класса ConnectionHandler
@@ -94,7 +95,6 @@ namespace DBConnectionLib
             if (Instance == null)
             {
                 Instance = new ConnectionHandler();
-                Connected = true;
             }
             return Instance;
         }
@@ -108,50 +108,33 @@ namespace DBConnectionLib
 
             sConnect = new SqlConnection(conStr.ConnectionString);
 
-            OpenConnection();
-
             Console.WriteLine("Соединение с БД успешно установлено");
         }
 
-        /// <summary>
-        /// Подключение к БД
-        /// </summary>
-        private void OpenConnection()
-        {
-            try
-            {
-                if (sConnect.State == ConnectionState.Open) return;
-                sConnect.OpenAsync();
-                //sConnect.Open();
-            }
-            catch (Exception e)
-            {
-                throw new DataBaseConnectionErrorException(string.Format("Ошибка подключения к базе данных - {0}", e.Message));
-            }
-
-        }
 
         /// <summary>
         /// Отправка запроса к БД, не возвращает результат
         /// </summary>
         public void ExecuteQuery(string Query)
         {
-            try
+            using (sConnect = new SqlConnection(conStr.ConnectionString))
             {
+                sConnect.Open();
+                try
+                {
+                    sTrans = sConnect.BeginTransaction();
+                    SqlCommand command = new SqlCommand(Query, sConnect, sTrans);
 
-                sTrans = sConnect.BeginTransaction();
-                SqlCommand command = new SqlCommand(Query, sConnect, sTrans);
 
-
-                command.ExecuteNonQuery();
-                sTrans.Commit();
+                    command.ExecuteNonQuery();
+                    sTrans.Commit();
+                }
+                catch (Exception e)
+                {
+                    sTrans.Rollback();
+                    throw new QueryErrorException(string.Format("Ошибка в запросе {0} \n {1}", Query, e.Message));
+                }
             }
-            catch (Exception e)
-            {
-                sTrans.Rollback();
-                throw new QueryErrorException(string.Format("Ошибка в запросе {0} \n {1}", Query, e.Message));
-            }
-
         }
 
         /// <summary>
@@ -159,30 +142,34 @@ namespace DBConnectionLib
         /// </summary>
         public void ExecuteQuery(IEnumerable<string> Query)
         {
-            string currentQuery = "";
-            try
+            using (sConnect = new SqlConnection(conStr.ConnectionString))
             {
-
-                sTrans = sConnect.BeginTransaction();
-                SqlCommand command = new SqlCommand();
-                command.Connection = sConnect;
-                command.Transaction = sTrans;
-                foreach (var line in Query)
+                sConnect.Open();
+                string currentQuery = "";
+                try
                 {
-                    currentQuery = line;
-                    command.CommandText = line;
-                    command.ExecuteNonQuery();
+
+                    sTrans = sConnect.BeginTransaction();
+                    SqlCommand command = new SqlCommand();
+                    command.Connection = sConnect;
+                    command.Transaction = sTrans;
+                    foreach (var line in Query)
+                    {
+                        currentQuery = line;
+                        command.CommandText = line;
+                        command.ExecuteNonQuery();
+                    }
+                    sTrans.Commit();
                 }
-                sTrans.Commit();
-            }
-            catch (DataBaseConnectionErrorException e)
-            {
-                throw new DataBaseConnectionErrorException(e.Message);
-            }
-            catch (Exception e)
-            {
-                sTrans.Rollback();
-                throw new QueryErrorException(string.Format("Ошибка в запросе {0} \n {1}", currentQuery, e.Message));
+                catch (DataBaseConnectionErrorException e)
+                {
+                    throw new DataBaseConnectionErrorException(e.Message);
+                }
+                catch (Exception e)
+                {
+                    sTrans.Rollback();
+                    throw new QueryErrorException(string.Format("Ошибка в запросе {0} \n {1}", currentQuery, e.Message));
+                }
             }
 
         }
@@ -193,42 +180,46 @@ namespace DBConnectionLib
         /// <param name="ErrorQueries">Запросы вызвавшие исключение</param>
         public void ExecuteQuery(IEnumerable<string> Query, ref List<ErrorQuery> ErrorQueries)
         {
-            string currentQuery = "";
-            try
+            using (sConnect = new SqlConnection(conStr.ConnectionString))
             {
-
-                sTrans = sConnect.BeginTransaction();
-                SqlCommand command = new SqlCommand();
-                command.Connection = sConnect;
-                command.Transaction = sTrans;
-                foreach (var line in Query)
+                sConnect.Open();
+                string currentQuery = "";
+                try
                 {
-                    try
-                    {
-                        currentQuery = line;
-                        command.CommandText = line;
-                        command.ExecuteNonQuery();
-                    }
-                    catch (Exception e)
-                    {
-                        ErrorQueries.Add(new ErrorQuery(line, e.Message));
-                        if (ErrorQueries.Count >= (from q in Query select q).Count())
-                        {
-                            throw new Exception(e.Message, e);
-                        }
-                    }
 
+                    sTrans = sConnect.BeginTransaction();
+                    SqlCommand command = new SqlCommand();
+                    command.Connection = sConnect;
+                    command.Transaction = sTrans;
+                    foreach (var line in Query)
+                    {
+                        try
+                        {
+                            currentQuery = line;
+                            command.CommandText = line;
+                            command.ExecuteNonQuery();
+                        }
+                        catch (Exception e)
+                        {
+                            ErrorQueries.Add(new ErrorQuery(line, e.Message));
+                            if (ErrorQueries.Count >= (from q in Query select q).Count())
+                            {
+                                throw new Exception(e.Message, e);
+                            }
+                        }
+
+                    }
+                    sTrans.Commit();
                 }
-                sTrans.Commit();
-            }
-            catch (DataBaseConnectionErrorException e)
-            {
-                throw new DataBaseConnectionErrorException(e.Message);
-            }
-            catch (Exception e)
-            {
-                sTrans.Rollback();
-                throw new QueryErrorException(string.Format("Ошибка в запросе {0} \n {1}", currentQuery, e.Message));
+                catch (DataBaseConnectionErrorException e)
+                {
+                    throw new DataBaseConnectionErrorException(e.Message);
+                }
+                catch (Exception e)
+                {
+                    sTrans.Rollback();
+                    throw new QueryErrorException(string.Format("Ошибка в запросе {0} \n {1}", currentQuery, e.Message));
+                }
             }
 
         }
@@ -238,22 +229,22 @@ namespace DBConnectionLib
         /// </summary>
         public void InsertBulkQuery(DataTable dataTable, string tableName)
         {
-            lock(_lockObj)
+            using (sConnect = new SqlConnection(conStr.ConnectionString))
             {
-
-
-                var bulkCopy = new SqlBulkCopy(sConnect, SqlBulkCopyOptions.TableLock, null)
+                sConnect.Open();         
+                using (var bulkCopy = new SqlBulkCopy(sConnect, SqlBulkCopyOptions.TableLock, null))
                 {
-                    DestinationTableName = tableName,
-                    BatchSize = dataTable.Rows.Count
-                };
-
-                bulkCopy.WriteToServer(dataTable);
-
-
-                bulkCopy.Close();
+                    foreach(DataColumn column in dataTable.Columns)
+                    {
+                        bulkCopy.ColumnMappings.Add(column.ColumnName, column.ColumnName);
+                    }
+                    
+                    bulkCopy.DestinationTableName = tableName;
+                    bulkCopy.BatchSize = dataTable.Rows.Count;
+                    bulkCopy.BulkCopyTimeout = 12000;
+                    bulkCopy.WriteToServer(dataTable);
+                }
             }
-
         }
 
         /// <summary>
@@ -262,12 +253,17 @@ namespace DBConnectionLib
         /// <param name="Query">Запрос</param>
         public string ExecuteOneElemQuery(string Query)
         {
+            lock(_lockObj)
+            {
+                using (sConnect = new SqlConnection(conStr.ConnectionString))
+                {
+                    sConnect.Open();
+                    SqlCommand res = new SqlCommand(Query, sConnect);
+                    object result = res.ExecuteScalar();
+                    return result == null ? "0" : result.ToString();
+                }
+            }
 
-            SqlCommand res = new SqlCommand(Query, sConnect);
-
-            object result = res.ExecuteScalar();
-
-            return result == null ? "0" : result.ToString();
         }
 
         /// <summary>
@@ -329,13 +325,5 @@ namespace DBConnectionLib
 
         }
 
-        /// <summary>
-        /// Закрытие соединения при ненадобности
-        /// </summary>
-        public void Dispose()
-        {
-            sConnect.Close();
-            Connected = false;
-        }
     }
 }
