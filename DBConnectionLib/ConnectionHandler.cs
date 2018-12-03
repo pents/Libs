@@ -229,20 +229,23 @@ namespace DBConnectionLib
         /// </summary>
         public void InsertBulkQuery(DataTable dataTable, string tableName)
         {
-            using (sConnect = new SqlConnection(conStr.ConnectionString))
+            lock(this)
             {
-                sConnect.Open();         
-                using (var bulkCopy = new SqlBulkCopy(sConnect, SqlBulkCopyOptions.TableLock, null))
+                using (sConnect = new SqlConnection(conStr.ConnectionString))
                 {
-                    foreach(DataColumn column in dataTable.Columns)
+                    sConnect.Open();
+                    using (var bulkCopy = new SqlBulkCopy(sConnect, SqlBulkCopyOptions.TableLock, null))
                     {
-                        bulkCopy.ColumnMappings.Add(column.ColumnName, column.ColumnName);
+                        foreach (DataColumn column in dataTable.Columns)
+                        {
+                            bulkCopy.ColumnMappings.Add(column.ColumnName, column.ColumnName);
+                        }
+
+                        bulkCopy.DestinationTableName = tableName;
+                        bulkCopy.BatchSize = dataTable.Rows.Count;
+                        bulkCopy.BulkCopyTimeout = 12000;
+                        bulkCopy.WriteToServer(dataTable);
                     }
-                    
-                    bulkCopy.DestinationTableName = tableName;
-                    bulkCopy.BatchSize = dataTable.Rows.Count;
-                    bulkCopy.BulkCopyTimeout = 12000;
-                    bulkCopy.WriteToServer(dataTable);
                 }
             }
         }
@@ -262,7 +265,8 @@ namespace DBConnectionLib
                     { typeof(int), "int"},
                     { typeof(bool), "bit"},
                     { typeof(float), "real"},
-                    { typeof(decimal), "money"}
+                    { typeof(decimal), "money"},
+                    { typeof(DateTime), "date"}
                 };
 
                 List<string> columnsProjection = new List<string>();
@@ -340,14 +344,11 @@ namespace DBConnectionLib
         }
 
         /// <summary>
-        /// Проводит запрос и возвращает данные как объект "System.Data.Set"
+        /// Проводит запрос и возвращает данные как объект "DataTable"
         /// </summary>
-        public DataSet GetDataTable(string Query)
+        public DataTable GetDataTable(string Query, string TableName)
         {
-            DataSet ds = new DataSet("TableDataSet");
-            DataTable dt = new DataTable("New_WorkSheet");
-
-
+            DataTable dt = new DataTable("{TableName}");
 
             SqlCommand command = new SqlCommand(Query);
             command.Connection = sConnect;
@@ -355,10 +356,7 @@ namespace DBConnectionLib
             adapter.SelectCommand = command;
             adapter.Fill(dt);
 
-
-            ds.Tables.Add(dt);
-
-            return ds;
+            return dt;
         }
 
         /// <summary>
