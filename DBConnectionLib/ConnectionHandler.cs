@@ -349,12 +349,15 @@ namespace DBConnectionLib
         public DataTable GetDataTable(string Query, string TableName)
         {
             DataTable dt = new DataTable("{TableName}");
+            using (sConnect = new SqlConnection(conStr.ConnectionString))
+            {
+                SqlCommand command = new SqlCommand(Query);
+                command.Connection = sConnect;
+                SqlDataAdapter adapter = new SqlDataAdapter();
+                adapter.SelectCommand = command;
+                adapter.Fill(dt);
+            }
 
-            SqlCommand command = new SqlCommand(Query);
-            command.Connection = sConnect;
-            SqlDataAdapter adapter = new SqlDataAdapter();
-            adapter.SelectCommand = command;
-            adapter.Fill(dt);
 
             return dt;
         }
